@@ -15,7 +15,7 @@ int strFindFirstMasked(char *buf, int maxlen, char until, char mask){
       return i;
     }
   }
-  
+
   return -1;
 }
 
@@ -45,12 +45,12 @@ const char Serial_SpecialCharEscapes[] = {
 
 int SerialDataEncode(char *decoded, int decodedlen, char *encoded){
   int encodedlen = 0;
-  
+
   encoded[encodedlen++] = Serial_MsgBeginChar;
-  
+
   for(int ci=0; ci<decodedlen; ci++){
     char c = decoded[ci];
-    
+
     bool special = false;
     for(int scci=0; scci<Serial_SpecialCharCount; scci++){
       if(c==Serial_SpecialChars[scci]){
@@ -59,27 +59,27 @@ int SerialDataEncode(char *decoded, int decodedlen, char *encoded){
         special = true;
       }
     }
-    
+
     if(!special){
       encoded[encodedlen++] = c;
     }
   }
-  
+
   encoded[encodedlen++] = Serial_MsgEndChar;
-  
+
   return encodedlen;
 }
 
 int SerialDataDecode(char *encoded, int encodedlen, char *decoded){
   int decodedlen = 0;
-  
+
   for(int ci=0; ci<encodedlen; ci++){
     char c = encoded[ci];
-    
+
     if(c==Serial_EscapeChar){ //if the current character is the escape, the next character is an escaped special char
       ci++;
       c = encoded[ci];
-      
+
       bool special = false;
       for(int scci=0; scci<Serial_SpecialCharCount; scci++){
         if(c==Serial_SpecialCharEscapes[scci]){
@@ -87,7 +87,7 @@ int SerialDataDecode(char *encoded, int encodedlen, char *decoded){
           special = true;
         }
       }
-      
+
       if(!special){ //the last character was the escape but the current one does not match any special characters
         //cout<<"Error: Escaped non-special char "<<c<<endl;
       }
@@ -95,35 +95,35 @@ int SerialDataDecode(char *encoded, int encodedlen, char *decoded){
       decoded[decodedlen++] = c;
     }
   }
-  
+
   return decodedlen;
 }
 
 int SerialReadAndRemoveFirstEncodedDataFromBuffer(char *buf, int *buflen, char *decoded, int maxdecodedlen){
   int startloc = strFindFirstMasked(buf, *buflen, Serial_MsgBeginChar, 0xFF); //find the first start marker in the string
   int endloc = strFindFirstMasked(buf+startloc+1, *buflen-startloc-1, Serial_MsgEndChar, 0xFF);
-  
+
   if(startloc!=-1 && endloc!=-1){
     endloc += startloc+1;
-    
+
     startloc = strFindLastMasked(buf, endloc, Serial_MsgBeginChar, 0xFF);
-    
+
     int encodedlen = endloc-startloc-1;
     char *encoded = (char*)malloc(encodedlen+1);
-    
+
     memcpy(encoded, buf+startloc+1, encodedlen);
-    
+
     memmove(buf, buf+endloc, *buflen-endloc-1);
     *buflen -= endloc+1;
-    
+
     return SerialDataDecode(encoded, encodedlen, decoded);
   }
-  
+
   return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////
-  
+
 
 #include <SPI.h>
 
@@ -135,14 +135,14 @@ int ACCEL_SCALE = 2; //Acceleration scale in g's. Valid values: 2 4 8 16
 int GYRO_SCALE = 250; //Gyro scale in dps. Valid values: 250 500 1000 2000
 
 /* Error codes
- * 0xFA01 IMU initialization failed 
+ * 0xFA01 IMU initialization failed
  * 0xFA02 Updating FIFO with DMP data failed
  */
 MPU9250_DMP imu; // Create an instance of the MPU9250_DMP class
 
 void setup() {
-  SerialPort.begin(9600); //Start serial port
-  
+  SerialPort.begin(115200); //Start serial port
+
   if (imu.begin() != INV_SUCCESS) {
     SerialPort.println("IMU INIT FAILED");
     //Serial.write(0xFA01); //IMU init failed
@@ -170,9 +170,11 @@ struct SensorDataPacket {
   int gScale;
   int gx, gy, gz;
   long qx, qy, qz, qw;
-  
+
   String toString() {
-    String s = String(ax);
+    String s = String(ax) + String(",") + String(ay) + String(",") + String(az)
+               + String(",") + String(gx) + String(",") + String(gy) + String(",") + String(gz)
+               + String(",") + String(time) + String(",") + String(aScale) + String(",") + String(gScale);
     return s;
   }
 };
@@ -194,7 +196,7 @@ char encoded[512];
 void loop() {
   if (imu.fifoAvailable() > 0) {
     if (imu.dmpUpdateFifo() == INV_SUCCESS) {
-      
+
       struct SensorDataPacket data = {imu.time,
         imu.getAccelSens(),
         imu.ax, imu.ay, imu.az,
@@ -202,10 +204,10 @@ void loop() {
         imu.gx, imu.gy, imu.gz,
         imu.qx, imu.qy, imu.qz, imu.qw
       };
-      
+
       String dataString = data.toString();
       int encodedDataLength = SerialDataEncode((char*)dataString.c_str(), dataString.length()*sizeof(char), encoded);
-      
+
       for (int i = 0; i < encodedDataLength; i++) {
         SerialPort.write(encoded[i]);
       }

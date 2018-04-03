@@ -36,15 +36,23 @@ char decoded[1024];
 
 void updateRobotState(DataBucket& state){
 	serial1->readDecodeLen(decoded, 1024);
-	
-	int data = decoded[0];
-	
-	state["pin"] = data;
+  auto imu = Util::splitString(string(decoded), ',');
+
+  state["imu"] = { };
+	state["imu"]["ax"] = imu[0];
+  state["imu"]["ay"] = imu[1];
+  state["imu"]["az"] = imu[2];
+  state["imu"]["gx"] = imu[3];
+  state["imu"]["gy"] = imu[4];
+  state["imu"]["gz"] = imu[5];
+  state["imu"]["t"] = imu[6];
+  state["imu"]["aScale"] = imu[7];
+  state["imu"]["gScale"] = imu[8];
 }
 
 int main(int argc, char** argv) {
 	initRobotState();
-	
+
     //prepare buckets to store data
     DataBucket current;
     DataBucket receivedState;
@@ -158,7 +166,7 @@ int main(int argc, char** argv) {
 
         robosub::Time::waitMicros(1); //tight loop, just not so tight as to peg the processor at 100%
         unsigned long milliseconds_since_epoch = robosub::Time::millis();
-        
+
         updateRobotState(current);
 
         //send data to connections
@@ -197,7 +205,9 @@ int main(int argc, char** argv) {
             } else {
                 //send compressed
                 auto send_stream = make_shared<WsServer::SendStream>();
-                *send_stream << compressed;
+                //FIXME disable compression
+                *send_stream << sentState;
+                //*send_stream << compressed;
                 connection->send(send_stream);
             }
 
