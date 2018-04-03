@@ -1,6 +1,10 @@
 #undef max
 #undef min
 
+//!!!!!IMPORTANT!!!!!
+//If the IMU is not repsonsive and doesn't show up in the serial port list
+//ground the SCL pin during startup to enter bootloader mode
+
 ////////////////////////////////////////////////////////////////////////////////////////////
 //Encoding and decoding; not part of Serial class.
 //Copy and paste this code into an arduino and it will still work.
@@ -137,7 +141,7 @@ int GYRO_SCALE = 250; //Gyro scale in dps. Valid values: 250 500 1000 2000
 MPU9250_DMP imu; // Create an instance of the MPU9250_DMP class
 
 void setup() {
-  SerialPort.begin(115200); //Start serial port
+  SerialPort.begin(9600); //Start serial port
   
   if (imu.begin() != INV_SUCCESS) {
     SerialPort.println("IMU INIT FAILED");
