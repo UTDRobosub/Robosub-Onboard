@@ -1,7 +1,7 @@
-#include <robosub/robosub.h>
+#include <librobosub/robosub.h>
 #include <stdio.h>
 #include <stdlib.h> //rand
-#include <robosub/serial.h>
+#include <librobosub/serial.h>
 
 using namespace std;
 using namespace robosub;
