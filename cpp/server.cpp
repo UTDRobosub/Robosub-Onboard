@@ -163,9 +163,8 @@ int main(int argc, char** argv) {
 
     while(true) {
         current["index"] = i++ % 1000; //force refresh approx every second
-        current["rand"] = rand() % 100;
-        current["cpu"] = telemetry.getSystemCPUUsage();
-        current["ram"] = telemetry.getSystemRAMUsage();
+        current["cpu"] = Util::round<double>(telemetry.getSystemCPUUsage());
+        current["ram"] = Util::round<double>(telemetry.getSystemRAMUsage());
 
         robosub::Time::waitMicros(1); //tight loop, just not so tight as to peg the processor at 100%
         unsigned long milliseconds_since_epoch = robosub::Time::millis();
