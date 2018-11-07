@@ -146,7 +146,8 @@ void sendEncodedSendstr(){
 }
 
 const int decodedmaxlen = 128;
-char recvbuf[decodedmaxlen*2];
+const int recvbufmaxlen = decodedmaxlen*2-1;
+char recvbuf[recvbufmaxlen+1];
 int recvbuflen = 0;
 
 char decoded[64];
@@ -173,9 +174,12 @@ void recvEncodedAndMirror(){
   }
 }
 
+int i=0;
+
 void loop(){
-  recvEncodedAndMirror();
-  sendEncodedSendstr();
+  //recvEncodedAndMirror();
+  //sendEncodedSendstr();
+  
   delay(500);
 }
 
