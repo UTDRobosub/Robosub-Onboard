@@ -1,196 +1,383 @@
 
-////////////////////////////////////////////////////////////////////////////////////////////
-//Encoding and decoding; not part of Serial class.
-//Copy and paste this code into an arduino and it will still work.
+//Universal Serial library, usable on Arduino and in C++
 
-int strFindFirstMasked(char *buf, int maxlen, char until, char mask){
-  for(int i=0; i<maxlen; i++){
-    if((buf[i]&mask)==until){
-      return i;
-    }
-  }
+const unsigned char Serial_CRC8Table[256] ={
+  0x00, 0x25, 0x4A, 0x6F, 0x94, 0xB1, 0xDE, 0xFB,
+  0x0D, 0x28, 0x47, 0x62, 0x99, 0xBC, 0xD3, 0xF6,
+  0x1A, 0x3F, 0x50, 0x75, 0x8E, 0xAB, 0xC4, 0xE1,
+  0x17, 0x32, 0x5D, 0x78, 0x83, 0xA6, 0xC9, 0xEC,
+  0x34, 0x11, 0x7E, 0x5B, 0xA0, 0x85, 0xEA, 0xCF,
+  0x39, 0x1C, 0x73, 0x56, 0xAD, 0x88, 0xE7, 0xC2,
+  0x2E, 0x0B, 0x64, 0x41, 0xBA, 0x9F, 0xF0, 0xD5,
+  0x23, 0x06, 0x69, 0x4C, 0xB7, 0x92, 0xFD, 0xD8,
+  0x68, 0x4D, 0x22, 0x07, 0xFC, 0xD9, 0xB6, 0x93,
+  0x65, 0x40, 0x2F, 0x0A, 0xF1, 0xD4, 0xBB, 0x9E,
+  0x72, 0x57, 0x38, 0x1D, 0xE6, 0xC3, 0xAC, 0x89,
+  0x7F, 0x5A, 0x35, 0x10, 0xEB, 0xCE, 0xA1, 0x84,
+  0x5C, 0x79, 0x16, 0x33, 0xC8, 0xED, 0x82, 0xA7,
+  0x51, 0x74, 0x1B, 0x3E, 0xC5, 0xE0, 0x8F, 0xAA,
+  0x46, 0x63, 0x0C, 0x29, 0xD2, 0xF7, 0x98, 0xBD,
+  0x4B, 0x6E, 0x01, 0x24, 0xDF, 0xFA, 0x95, 0xB0,
+  0xD0, 0xF5, 0x9A, 0xBF, 0x44, 0x61, 0x0E, 0x2B,
+  0xDD, 0xF8, 0x97, 0xB2, 0x49, 0x6C, 0x03, 0x26,
+  0xCA, 0xEF, 0x80, 0xA5, 0x5E, 0x7B, 0x14, 0x31,
+  0xC7, 0xE2, 0x8D, 0xA8, 0x53, 0x76, 0x19, 0x3C,
+  0xE4, 0xC1, 0xAE, 0x8B, 0x70, 0x55, 0x3A, 0x1F,
+  0xE9, 0xCC, 0xA3, 0x86, 0x7D, 0x58, 0x37, 0x12,
+  0xFE, 0xDB, 0xB4, 0x91, 0x6A, 0x4F, 0x20, 0x05,
+  0xF3, 0xD6, 0xB9, 0x9C, 0x67, 0x42, 0x2D, 0x08,
+  0xB8, 0x9D, 0xF2, 0xD7, 0x2C, 0x09, 0x66, 0x43,
+  0xB5, 0x90, 0xFF, 0xDA, 0x21, 0x04, 0x6B, 0x4E,
+  0xA2, 0x87, 0xE8, 0xCD, 0x36, 0x13, 0x7C, 0x59,
+  0xAF, 0x8A, 0xE5, 0xC0, 0x3B, 0x1E, 0x71, 0x54,
+  0x8C, 0xA9, 0xC6, 0xE3, 0x18, 0x3D, 0x52, 0x77,
+  0x81, 0xA4, 0xCB, 0xEE, 0x15, 0x30, 0x5F, 0x7A,
+  0x96, 0xB3, 0xDC, 0xF9, 0x02, 0x27, 0x48, 0x6D,
+  0x9B, 0xBE, 0xD1, 0xF4, 0x0F, 0x2A, 0x45, 0x60
+};
 
-  return -1;
+const int Serial_TicksToWaitForAck = 500;
+const int Serial_TickLengthMs = 1;
+
+const int Serial_MaxMessageLength = 256;
+
+const char Serial_State_Outside        = 1;
+const char Serial_State_InMessageFlags = 2;
+const char Serial_State_InMessageSN    = 3;
+const char Serial_State_InMessageData  = 4;
+const char Serial_State_InMessageCRC   = 5;
+
+const char Serial_Flags_IncludesAck       = 0b00000001;
+const char Serial_Flags_NeedsAck          = 0b00000010;
+const char Serial_Flags_NoCRCCheck        = 0b00000100;
+const char Serial_Flags_NeedsAckData      = 0b00001000;
+const char Serial_Flags_IncludesAckData   = 0b00010000;
+
+struct Serial_State{
+  void* instance;
+  
+  void (*onReceiveMessage)(void* instance, char* message, int length, bool needsresponse, char** response, int* responsepength);
+  void (*sendChar)(void* instance, char data, bool terminate);
+  void (*delay)(void* instance, int milliseconds);
+  void (*pollReceive)(void* instance);
+  
+  char state;
+  
+  bool inCharacterEscape;
+  char currentMessageFlags;
+  char currentMessageSN;
+  char currentMessageCRC;
+  char currentMessageComputedCRC;
+  
+  int currentMessageDataLength;
+  char* currentMessageData;
+  
+  bool awaitingAck;
+  char awaitingAckSN;
+  
+  bool lastMessageHasAckData;
+  
+  char lastUsedSN;
+};
+
+Serial_State* Serial_NewState(
+  void* instanceP,
+  void (*onReceiveMessageF)(void* instance, char* message, int length, bool needsresponse, char** response, int* responsepength),
+  void (*sendCharF)(void* instance, char data, bool terminate),
+  void (*delayF)(void* instance, int milliseconds),
+  void (*pollReceiveF)(void* instance)
+){
+  Serial_State* state = new Serial_State();
+  
+  state->instance = instanceP;
+  
+  state->onReceiveMessage = onReceiveMessageF;
+  state->sendChar = sendCharF;
+  state->delay = delayF;
+  state->pollReceive = pollReceiveF;
+  
+  state->state = Serial_State_Outside;
+  
+  state->inCharacterEscape = false;
+  state->currentMessageFlags = 0;
+  state->currentMessageSN = 0;
+  state->currentMessageCRC = 0;
+  state->currentMessageComputedCRC = 0;
+  
+  state->currentMessageDataLength = 0;
+  state->currentMessageData = (char*)malloc(Serial_MaxMessageLength);
+  
+  state->awaitingAck = false;
+  state->awaitingAckSN = 0;
+  
+  state->lastMessageHasAckData = false;
+
+  state->lastUsedSN = 'a';
+  
+  return state;
 }
 
-int strFindLastMasked(char *buf, int maxlen, char until, char mask){
-  for(int i=maxlen-1; i>=0; i--){
-    if((buf[i]&mask)==until){
-      return i;
-    }
-  }
+void Serial_DeleteState(Serial_State* state){
+  free(state->currentMessageData);
+  delete(state);
 }
 
-const char Serial_MsgBeginChar = '[';
-const char Serial_MsgEndChar = ']';
-const char Serial_EscapeChar = '\\';
-
-int Serial_SpecialCharCount = 3;
-const char Serial_SpecialChars[] = {
-  Serial_MsgBeginChar,
-  Serial_MsgEndChar,
-  Serial_EscapeChar,
-};
-const char Serial_SpecialCharEscapes[] = {
-  '(',
-  ')',
-  '/',
-};
-
-int SerialDataEncode(char *decoded, int decodedlen, char *encoded){
-  int encodedlen = 0;
-
-  encoded[encodedlen++] = Serial_MsgBeginChar;
-
-  for(int ci=0; ci<decodedlen; ci++){
-    char c = decoded[ci];
-
-    bool special = false;
-    for(int scci=0; scci<Serial_SpecialCharCount; scci++){
-      if(c==Serial_SpecialChars[scci]){
-        encoded[encodedlen++] = Serial_EscapeChar;
-        encoded[encodedlen++] = Serial_SpecialCharEscapes[scci];
-        special = true;
+void Serial_SendMessageComplex(Serial_State* state, char* buffer, int length, int sequenceNumber, bool includesack, bool needsack, bool needsackdata, bool includesackdata, char** response, int* responselength){
+  bool retransmit = true;
+  
+  while(retransmit){
+    
+    char flags = 0b00100000;
+    if(includesack    ){ flags = flags|Serial_Flags_IncludesAck    ; }
+    if(needsack       ){ flags = flags|Serial_Flags_NeedsAck       ; }
+    if(needsackdata   ){ flags = flags|Serial_Flags_NeedsAckData   ; }
+    if(includesackdata){ flags = flags|Serial_Flags_IncludesAckData; }
+    
+    char crc;
+    
+    state->sendChar(state->instance, '[', false);
+    
+    state->sendChar(state->instance, flags, false);
+    crc = Serial_CRC8Table[crc ^ flags];
+    state->sendChar(state->instance, sequenceNumber, false);
+    crc = Serial_CRC8Table[crc ^ sequenceNumber];
+    
+    for(int i=0; i<length; i++){
+      char data = buffer[i];
+      
+      if     (data=='[' ){ state->sendChar(state->instance, '\\', false); state->sendChar(state->instance, '(', false); }
+      else if(data==']' ){ state->sendChar(state->instance, '\\', false); state->sendChar(state->instance, ')', false); }
+      else if(data=='\\'){ state->sendChar(state->instance, '\\', false); state->sendChar(state->instance, '/', false); }
+      else               { state->sendChar(state->instance, data, false);                                               }
+      
+      crc = Serial_CRC8Table[crc ^ data];
+    }
+    
+    state->sendChar(state->instance, ']', false);
+    
+    state->sendChar(state->instance, crc, true);
+    
+    if(needsack || needsackdata){
+      state->awaitingAck = true;
+      state->awaitingAckSN = sequenceNumber;
+      
+      int ticksWaited = 0;
+      
+      while(state->awaitingAck && ticksWaited<Serial_TicksToWaitForAck){
+        state->pollReceive(state->instance);
+        
+        state->delay(state->instance, Serial_TickLengthMs);
+        
+        ticksWaited++;
       }
-    }
-
-    if(!special){
-      encoded[encodedlen++] = c;
-    }
-  }
-
-  encoded[encodedlen++] = Serial_MsgEndChar;
-
-  return encodedlen;
-}
-
-int SerialDataDecode(char *encoded, int encodedlen, char *decoded){
-  int decodedlen = 0;
-
-  for(int ci=0; ci<encodedlen; ci++){
-    char c = encoded[ci];
-
-    if(c==Serial_EscapeChar){ //if the current character is the escape, the next character is an escaped special char
-      ci++;
-      c = encoded[ci];
-
-      bool special = false;
-      for(int scci=0; scci<Serial_SpecialCharCount; scci++){
-        if(c==Serial_SpecialCharEscapes[scci]){
-          decoded[decodedlen++] = Serial_SpecialChars[scci];
-          special = true;
+      
+      if(ticksWaited<Serial_TicksToWaitForAck){
+        retransmit = false;
+        
+        if(state->lastMessageHasAckData){
+          state->lastMessageHasAckData = false;
+          
+          response = &(state->currentMessageData);
+          responselength = &(state->currentMessageDataLength);
+        }else{
+          response = 0;
+          responselength = 0;
         }
       }
+    }else{
+      retransmit = false;
+    }
+  }
+}
 
-      if(!special){ //the last character was the escape but the current one does not match any special characters
-        //cout<<"Error: Escaped non-special char "<<c<<endl;
+void Serial_OnReceiveMessage(Serial_State* state){
+  bool needsack        = (state->currentMessageFlags & Serial_Flags_NeedsAck       ) != 0;
+  bool needsackdata    = (state->currentMessageFlags & Serial_Flags_NeedsAckData   ) != 0;
+  bool includesackdata = (state->currentMessageFlags & Serial_Flags_IncludesAckData) != 0;
+  bool includesack     = (state->currentMessageFlags & Serial_Flags_IncludesAck    ) != 0;
+  
+  if(includesack){
+    if(state->currentMessageSN==state->awaitingAckSN){
+      state->awaitingAck = false;
+    }
+  }
+  
+  if(needsack){
+    Serial_SendMessageComplex(state, 0, 0, state->currentMessageSN, true, false, false, false, 0, 0);
+  }
+  
+  char* response;
+  int responselength;
+  
+  if(includesackdata){
+    state->lastMessageHasAckData = true;
+  }else{
+    state->onReceiveMessage(state->instance, state->currentMessageData, state->currentMessageDataLength, needsackdata, &response, &responselength);
+  }
+  
+  if(needsackdata){
+    Serial_SendMessageComplex(state, response, responselength, state->currentMessageSN, false, false, false, true, 0, 0);
+  }
+}
+
+void Serial_ReceiveChar(Serial_State* state, char rawdata){
+  char escdata = rawdata;
+  
+  if(rawdata=='\\'){
+    state->inCharacterEscape = true;
+  }else{
+    if(state->inCharacterEscape){
+      if     (rawdata=='(') escdata = '[';
+      else if(rawdata==')') escdata = ']';
+      else if(rawdata=='/') escdata = '\\';
+      state->inCharacterEscape = false;
+    }
+    
+    if(rawdata=='['){
+      state->state = Serial_State_InMessageFlags;
+      state->currentMessageFlags = 0;
+      state->currentMessageSN = 0;
+      state->currentMessageComputedCRC = 0;
+      
+      state->currentMessageDataLength = 0;
+
+      Serial.println("saw beginning of message");
+      
+    }else if(state->state==Serial_State_InMessageFlags){
+      state->currentMessageFlags = escdata;
+      
+      state->currentMessageComputedCRC = Serial_CRC8Table[state->currentMessageComputedCRC ^ escdata];
+      
+      state->state = Serial_State_InMessageSN;
+
+      Serial.print("saw flags ");
+      Serial.println((int)state->currentMessageFlags);
+      
+    }else if(state->state==Serial_State_InMessageSN){
+      state->currentMessageSN = escdata;
+      
+      state->currentMessageComputedCRC = Serial_CRC8Table[state->currentMessageComputedCRC ^ escdata];
+      
+      state->state = Serial_State_InMessageData;
+
+      Serial.print("saw SN ");
+      Serial.println((int)state->currentMessageSN);
+      
+    }else if(state->state==Serial_State_InMessageData){
+      if(rawdata!=']'){
+        if(state->currentMessageDataLength<Serial_MaxMessageLength){
+          state->currentMessageData[state->currentMessageDataLength] = escdata;
+          state->currentMessageDataLength++;
+          
+          state->currentMessageComputedCRC = Serial_CRC8Table[state->currentMessageComputedCRC ^ escdata];
+
+          Serial.print("saw char ");
+          Serial.println(escdata);
+          Serial.print("crc is now ");
+          Serial.println((int)state->currentMessageComputedCRC);
+        }else{
+          state->state = Serial_State_Outside;
+
+          Serial.println("message too long");
+        }
+      }else{
+        state->state = Serial_State_InMessageCRC;
+        
+        Serial.println("saw end of message");
       }
-    }else{ //otherwise it's a regular character
-      decoded[decodedlen++] = c;
+      
+    }else if(state->state==Serial_State_InMessageCRC){
+      state->currentMessageCRC = escdata;
+
+      Serial.print("saw crc ");
+      Serial.println((int)state->currentMessageCRC);
+      
+      if(state->currentMessageCRC==state->currentMessageComputedCRC || (state->currentMessageFlags&Serial_Flags_NoCRCCheck)!=0){ //if CRC passes
+        Serial.println("crc accepted");
+        
+        Serial_OnReceiveMessage(state);
+      }else{
+        Serial.println("crc rejected");
+      }
+      
+      state->state = Serial_State_Outside;
     }
   }
-
-  return decodedlen;
 }
 
-//Returns the number of bytes decoded
-int SerialReadAndRemoveFirstEncodedDataFromBuffer(char *buf, int *buflen, char *decoded, int maxdecodedlen){
-  int startloc = strFindFirstMasked(buf, *buflen, Serial_MsgBeginChar, 0xFF); //find the first start marker in the string
-  int endloc = strFindFirstMasked(buf+startloc+1, *buflen-startloc-1, Serial_MsgEndChar, 0xFF);
-
-  if(startloc!=-1 && endloc!=-1){
-    endloc += startloc+1;
-
-    startloc = strFindLastMasked(buf, endloc, Serial_MsgBeginChar, 0xFF);
-
-    int encodedlen = endloc-startloc-1;
-    char *encoded = (char*)malloc(encodedlen+1);
-
-    memcpy(encoded, buf+startloc+1, encodedlen);
-
-    memmove(buf, buf+endloc, *buflen-endloc-1);
-    *buflen -= endloc+1;
-
-    return SerialDataDecode(encoded, encodedlen, decoded);
-  }
-
-  return 0;
+void Serial_SendMessage(Serial_State* state, char* buffer, int length, bool needsack){
+  char sequencenumber = state->lastUsedSN+1;
+  state->lastUsedSN++;
+  
+  Serial_SendMessageComplex(state, buffer, length, sequencenumber, false, needsack, false, false, 0, 0);
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////
+void Serial_SendMessageNeedsResponse(Serial_State* state, char* buffer, int length, bool needsack, char** response, int* responselength){
+  char sequencenumber = state->lastUsedSN+1;
+  state->lastUsedSN++;
+  
+  Serial_SendMessageComplex(state, buffer, length, sequencenumber, false, false, true, false, response, responselength);
+}
 
-#include <Servo.h>
-byte servoPin = 9;
-Servo servo;
+/////////////////////////////////////////////
 
+//Sample usage
 
-const int recvbufmaxlen = 256;
-char recvbuf[recvbufmaxlen];
-int recvbuflen = 0;
+Serial_State* serialstate;
 
-void SerialReadEntireBuffer(){
+void sendCharFn(void* instance, char data, bool terminate){
+  Serial.write(data);
+}
+
+void delayMsFn(void* instance, int ms){
+  delay(ms);
+}
+
+void pollReceiveFn(void* instance){
   while(Serial.available()){
-    char c = Serial.read();
-    if(recvbuflen<recvbufmaxlen){
-      recvbuf[recvbuflen++] = c;
-    }
+    char data = Serial.read();
+    Serial_ReceiveChar(serialstate, data);
   }
 }
 
-const int decodedmaxlen = 128;
-char decoded[decodedmaxlen];
-int decodedlen = 0;
+void* instance = 0;
 
-void SerialReadNext(){
-  SerialReadEntireBuffer();
-  decodedlen = SerialReadAndRemoveFirstEncodedDataFromBuffer(recvbuf, &recvbuflen, decoded, decodedmaxlen);
-}
+/////////////////////////////////
 
-const int encodedmaxlen = 64;
-char encoded[encodedmaxlen];
-int encodedlen = 0;
-
-const int sendstrmaxlen = 32;
-char sendstr[sendstrmaxlen];
-int sendstrlen = 0;
-
-void sendEncoded(){
-  encodedlen = SerialDataEncode(sendstr, sendstrlen, encoded);
-  for(int i=0; i<encodedlen; i++){
-    Serial.write(encoded[i]);
-  }
+void receiveMessageCallback(void* instance, char* message, int length, bool needsresponse, char** response, int* responselength){
+  //your code here
+  
 }
 
 void setup(){
-  Serial.begin(9600);
-  servo.attach(servoPin);
-  servo.writeMicroseconds(1500);
-  delay(1000);
+  Serial.begin(115200);
+
+  pinMode(A0, INPUT);
+
+  serialstate = Serial_NewState(instance, receiveMessageCallback, sendCharFn, delayMsFn, pollReceiveFn);
 }
 
+int ticksToSend = 1000;
+int curTick = 0;
+
+char senddata[32];
+int senddatalength;
+
 void loop(){
-  SerialReadNext();
+  pollReceiveFn(0);
 
-  if(decodedlen >= 2)
-  {
+  curTick++;
+  if(curTick>=ticksToSend){
     
-    int data = *((int*)decoded);
-
-    Serial.write("[REPLY ");
+    senddata[0] = analogRead(A0)/4;
+    senddata[1] = 'z';
+    senddatalength = 2;
     
-    if (data >= 1400 && data <= 1600)
-    {
-      servo.writeMicroseconds(data);
+    Serial_SendMessage(serialstate, senddata, senddatalength, false);
 
-      Serial.print("Wrote data");
-    }
-
-    Serial.print(data);
-    Serial.write(']');
-  }else{
-    //Serial.write("[Not Enough Data]");
+    curTick = 0;
   }
-  
-  delay(10);
+
+  delay(1);
 }
 
