@@ -25,32 +25,41 @@ void handleMissionControlState(DataBucket state) {
 }
 
 Serial *serial1;
+int lastPolledSensorData = -1;
+
+void receiveMessage(char* message, int length, bool needsresponse, char** response, int* responselength)
+{
+    lastPolledSensorData = (int)((unsigned char)message[0]);
+}
 
 void initRobotState(){
     string port = Util::execCLI("ls /dev | grep tty[AU]");
     cout<<"using serial port /dev/"<<port<<endl;
-    serial1 = new Serial("/dev/" + port.substr(0,port.length()-1), 115200);
+    serial1 = new Serial("/dev/" + port.substr(0,port.length()-1), 115200, receiveMessage);
 }
 
 char decoded[1024];
 
 void updateRobotState(DataBucket& state){
-    serial1->readDecodeLen(decoded, 1024);
-    auto imu = Util::splitString(string(decoded), ',');
+    serial1->receiveAllMessages();
 
-    state["imu"] = { };
+    state["sensor"] = lastPolledSensorData;
 
-    if (imu.size() < 9) return;
+//    auto imu = Util::splitString(string(decoded), ',');
 
-    state["imu"]["ax"] = imu[0];
-    state["imu"]["ay"] = imu[1];
-    state["imu"]["az"] = imu[2];
-    state["imu"]["gx"] = imu[3];
-    state["imu"]["gy"] = imu[4];
-    state["imu"]["gz"] = imu[5];
-    state["imu"]["t"] = imu[6];
-    state["imu"]["aScale"] = imu[7];
-    state["imu"]["gScale"] = imu[8];
+//    state["imu"] = { };
+//
+//    if (imu.size() < 9) return;
+//
+//    state["imu"]["ax"] = imu[0];
+//    state["imu"]["ay"] = imu[1];
+//    state["imu"]["az"] = imu[2];
+//    state["imu"]["gx"] = imu[3];
+//    state["imu"]["gy"] = imu[4];
+//    state["imu"]["gz"] = imu[5];
+//    state["imu"]["t"] = imu[6];
+//    state["imu"]["aScale"] = imu[7];
+//    state["imu"]["gScale"] = imu[8];
 }
 
 int main(int argc, char** argv) {
