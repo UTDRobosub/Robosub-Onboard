@@ -205,6 +205,8 @@ int main(int argc, char** argv) {
             connectionState[connection].ready = false;
             connectionState[connection].lastSend = robosub::Time::millis();
 
+            cout << current << endl;
+
             //check if better to send as compressed or uncompressed
             //cout << current.toString().length() << " " << compressed.toString().length() << endl;
             if (current.toString().length() < compressed.toString().length())
