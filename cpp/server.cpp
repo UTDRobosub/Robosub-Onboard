@@ -1,7 +1,9 @@
+
 #include <librobosub/robosub.h>
 #include <stdio.h>
 #include <stdlib.h> //rand
-#include <librobosub/serial.h>
+
+#include "robot.h"
 
 using namespace std;
 using namespace robosub;
@@ -20,46 +22,8 @@ bool handleSpecialMissionControlMessage(string message) {
     return false; //nothing to handle
 }
 
-void handleMissionControlState(DataBucket state) {
+void handleMissionControlState(DataBucket& state) {
 
-}
-
-Serial *serial1;
-int lastPolledSensorData = -1;
-
-void receiveMessage(char* message, int length, bool needsresponse, char** response, int* responselength)
-{
-    lastPolledSensorData = (int)((unsigned char)message[0]);
-}
-
-void initRobotState(){
-    string port = Util::execCLI("ls /dev | grep tty[AU]");
-    cout<<"using serial port /dev/"<<port<<endl;
-    serial1 = new Serial("/dev/" + port.substr(0,port.length()-1), 115200, receiveMessage);
-}
-
-char decoded[1024];
-
-void updateRobotState(DataBucket& state){
-    serial1->receiveAllMessages();
-
-    state["sensor"] = lastPolledSensorData;
-
-//    auto imu = Util::splitString(string(decoded), ',');
-
-//    state["imu"] = { };
-//
-//    if (imu.size() < 9) return;
-//
-//    state["imu"]["ax"] = imu[0];
-//    state["imu"]["ay"] = imu[1];
-//    state["imu"]["az"] = imu[2];
-//    state["imu"]["gx"] = imu[3];
-//    state["imu"]["gy"] = imu[4];
-//    state["imu"]["gz"] = imu[5];
-//    state["imu"]["t"] = imu[6];
-//    state["imu"]["aScale"] = imu[7];
-//    state["imu"]["gScale"] = imu[8];
 }
 
 int main(int argc, char** argv) {
@@ -126,6 +90,8 @@ int main(int argc, char** argv) {
                 }
 
                 handleMissionControlState(receivedState);
+
+                updateRobotControls(receivedState);
             }
 
             //send ACK
@@ -172,13 +138,13 @@ int main(int argc, char** argv) {
 
     while(true) {
         current["index"] = i++ % 1000; //force refresh approx every second
-        current["cpu"] = Util::round<double>(telemetry.getSystemCPUUsage());
-        current["ram"] = Util::round<double>(telemetry.getSystemRAMUsage());
+        current["cpu"] = Util::round<double>(telemetry.getSystemCPUUsage(), 0);
+        current["ram"] = Util::round<double>(telemetry.getSystemRAMUsage(), 0);
 
         robosub::Time::waitMicros(1); //tight loop, just not so tight as to peg the processor at 100%
         unsigned long milliseconds_since_epoch = robosub::Time::millis();
 
-        updateRobotState(current);
+        updateRobotTelemetry(current);
 
         //send data to connections
         for(auto &connection : server.get_connections())
@@ -205,7 +171,7 @@ int main(int argc, char** argv) {
             connectionState[connection].ready = false;
             connectionState[connection].lastSend = robosub::Time::millis();
 
-            cout << current << endl;
+            //cout << current << endl;
 
             //check if better to send as compressed or uncompressed
             //cout << current.toString().length() << " " << compressed.toString().length() << endl;

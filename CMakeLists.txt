@@ -8,6 +8,6 @@ file(GLOB SOURCES cpp/*.cpp)
 #file(GLOB HEADERS include/*.h)
 #include_directories(include)
 
-add_executable(robosub-server ${SOURCES})
+add_executable(robosub-server ${SOURCES} cpp/robot.h cpp/robot.cpp)
 target_link_libraries(robosub-server robosub ${robosub_LIBS} ${OpenCV_LIBS})
 target_compile_features(robosub-server PRIVATE cxx_range_for)
