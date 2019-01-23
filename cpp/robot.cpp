@@ -1,30 +1,36 @@
 
 #include "robot.h"
 
-Serial *serial1;
-int lastPolledSensorData = -1;
+Serial *serial_imu;
+Serial* serial_motorcontrol;
 
-char lastReceivedMessage[256];
+char imuLastReceivedMessage[256];
+void imuReceiveMessage(char* message, int length, bool needsresponse, char** response, int* responselength){
+    memcpy(imuLastReceivedMessage, message, length);
+    imuLastReceivedMessage[length] = 0;
+    //cout<<imuLastReceivedMessage<<endl;
+}
 
-void receiveMessage(char* message, int length, bool needsresponse, char** response, int* responselength){
-    memcpy(lastReceivedMessage, message, length);
-    lastReceivedMessage[length] = 0;
+void mcReceiveMessage(char* message, int length, bool needsresponse, char** response, int* responselength){
+    message[length] = 0;
+    cout<<message<<endl;
 }
 
 void initRobotState(){
-    string port = Util::execCLI("ls /dev | grep tty[AU]");
-    cout<<"using serial port /dev/"<<port<<endl;
-    serial1 = new Serial("/dev/" + port.substr(0,port.length()-1), 115200, receiveMessage, false);
+    //string port = Util::execCLI("ls /dev | grep tty[AU]");
+    //cout<<"using serial port /dev/"<<port<<endl;
+    //serial1 = new Serial("/dev/" + port.substr(0,port.length()-1), 115200, receiveMessage, false);
+
+    serial_imu = new Serial("/dev/ttyACM1", 115200, imuReceiveMessage, false);
+    serial_motorcontrol = new Serial("/dev/ttyACM2", 115200, mcReceiveMessage, true);
 }
 
 void updateRobotTelemetry(DataBucket& state){
-    serial1->receiveAllMessages();
+    serial_imu->receiveAllMessages();
 
-    auto imu = Util::splitString(string(lastReceivedMessage), ',');
+    auto imu = Util::splitString(string(imuLastReceivedMessage), ',');
 
-    cout<<lastReceivedMessage<<endl;
-
-    state["imu"] = { };
+    state["imu"] = {};
 
     if (imu.size() < 17) return;
 
@@ -45,12 +51,26 @@ void updateRobotTelemetry(DataBucket& state){
     state["imu"]["er"] = imu[14]; // euler angle roll  (deg)
     state["imu"]["ey"] = imu[15]; // euler angle yaw   (deg)
     state["imu"]["ch"] = imu[16]; // compass heading   (deg)
+
+    serial_motorcontrol->receiveAllMessages();
 }
+
+struct MotorValues {
+    short bl;
+    short br;
+    short ul;
+    short ur;
+};
 
 void updateRobotControls(DataBucket& state){
     try {
-        double mbl = state["motors"]["bl"];
-        cout<<mbl<<endl;
+        MotorValues motorvals;
+        motorvals.bl = (short)state["motors"]["bl"];
+        motorvals.br = (short)state["motors"]["br"];
+        motorvals.ul = (short)state["motors"]["ul"];
+        motorvals.ur = (short)state["motors"]["ur"];
+
+        serial_motorcontrol->transmitMessageFast((char*)&motorvals, sizeof(motorvals));
     } catch (exception &e) {
         cout << e.what() << endl;
     }
