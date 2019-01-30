@@ -21,8 +21,8 @@ void initRobotState(){
     //cout<<"using serial port /dev/"<<port<<endl;
     //serial1 = new Serial("/dev/" + port.substr(0,port.length()-1), 115200, receiveMessage, false);
 
-    serial_imu = new Serial("/dev/ttyACM1", 115200, imuReceiveMessage, false);
-    serial_motorcontrol = new Serial("/dev/ttyACM2", 115200, mcReceiveMessage, true);
+    serial_imu = new Serial("/dev/ttyACM0", 115200, imuReceiveMessage, false);
+    serial_motorcontrol = new Serial("/dev/ttyACM1", 115200, mcReceiveMessage, true);
 }
 
 void updateRobotTelemetry(DataBucket& state){
@@ -34,23 +34,23 @@ void updateRobotTelemetry(DataBucket& state){
 
     if (imu.size() < 17) return;
 
-    state["imu"]["ax"] = imu[ 0]; // acceleration x (G)
-    state["imu"]["ay"] = imu[ 1]; // acceleration y (G)
-    state["imu"]["az"] = imu[ 2]; // acceleration z (G)
-    state["imu"]["gx"] = imu[ 3]; // gyroscope x (deg/sec)
-    state["imu"]["gy"] = imu[ 4]; // gyroscope y (deg/sec)
-    state["imu"]["gz"] = imu[ 5]; // gyroscope z (deg/sec)
-    state["imu"]["mx"] = imu[ 6]; // magnetometer x (uT)
-    state["imu"]["my"] = imu[ 7]; // magnetometer y (uT)
-    state["imu"]["mz"] = imu[ 8]; // magnetometer z (uT)
-    state["imu"]["qw"] = imu[ 9]; // quaternion w
-    state["imu"]["qx"] = imu[10]; // quaternion x
-    state["imu"]["qy"] = imu[11]; // quaternion y
-    state["imu"]["qz"] = imu[12]; // quaternion z
-    state["imu"]["ep"] = imu[13]; // euler angle pitch (deg)
-    state["imu"]["er"] = imu[14]; // euler angle roll  (deg)
-    state["imu"]["ey"] = imu[15]; // euler angle yaw   (deg)
-    state["imu"]["ch"] = imu[16]; // compass heading   (deg)
+    state["imu"]["ax"] = stof(imu[ 0]); // acceleration x (G)
+    state["imu"]["ay"] = stof(imu[ 1]); // acceleration y (G)
+    state["imu"]["az"] = stof(imu[ 2]); // acceleration z (G)
+    state["imu"]["gx"] = stof(imu[ 3]); // gyroscope x (deg/sec)
+    state["imu"]["gy"] = stof(imu[ 4]); // gyroscope y (deg/sec)
+    state["imu"]["gz"] = stof(imu[ 5]); // gyroscope z (deg/sec)
+    state["imu"]["mx"] = stof(imu[ 6]); // magnetometer x (uT)
+    state["imu"]["my"] = stof(imu[ 7]); // magnetometer y (uT)
+    state["imu"]["mz"] = stof(imu[ 8]); // magnetometer z (uT)
+    state["imu"]["qw"] = stof(imu[ 9]); // quaternion w
+    state["imu"]["qx"] = stof(imu[10]); // quaternion x
+    state["imu"]["qy"] = stof(imu[11]); // quaternion y
+    state["imu"]["qz"] = stof(imu[12]); // quaternion z
+    state["imu"]["ep"] = stof(imu[13]); // euler angle pitch (deg)
+    state["imu"]["er"] = stof(imu[14]); // euler angle roll  (deg)
+    state["imu"]["ey"] = stof(imu[15]); // euler angle yaw   (deg)
+    state["imu"]["ch"] = stof(imu[16]); // compass heading   (deg)
 
     serial_motorcontrol->receiveAllMessages();
 }
