@@ -65,10 +65,16 @@ struct MotorValues {
 void updateRobotControls(DataBucket& state){
     try {
         MotorValues motorvals;
-        motorvals.bl = (short)state["motors"]["bl"];
-        motorvals.br = (short)state["motors"]["br"];
-        motorvals.ul = (short)state["motors"]["ul"];
-        motorvals.ur = (short)state["motors"]["ur"];
+        motorvals.bl = (short)state["motors"]["bl"]; //connected to pin 9 on the arduino
+        motorvals.br = (short)state["motors"]["br"]; //connected to pin 11 on the arduino
+        motorvals.ul = (short)state["motors"]["ul"]; //connected to pin 8 on the arduino
+        motorvals.ur = (short)state["motors"]["ur"]; //connected to pin 10 on the arduino
+
+//        motorvals.bl = 1500;
+//        motorvals.br = 1500;
+//        motorvals.ul = 1500;
+//        motorvals.ur = 1550;
+
 
         serial_motorcontrol->transmitMessageFast((char*)&motorvals, sizeof(motorvals));
     } catch (exception &e) {
