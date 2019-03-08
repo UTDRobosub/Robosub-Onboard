@@ -30,6 +30,8 @@ void updateRobotTelemetry(DataBucket& state){
 
     auto imu = Util::splitString(string(imuLastReceivedMessage), ',');
 
+//    cout << imuLastReceivedMessage << endl;
+
     state["imu"] = {};
 
     if (imu.size() < 17) return;

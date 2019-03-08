@@ -73,25 +73,30 @@ int main(int argc, char** argv) {
         if (message_str == "\x06") {
             connectionState[connection].ready = true;
             connectionState[connection].rtt = robosub::Time::millis() - connectionState[connection].lastSend;
+            cout << "[rcv ] ack" << endl;
         } else {
-            cout << "Server: Message received: " << message_str << endl;
+            cout << "[rcv ] " << message_str << endl;
 
-            //handle messages from mission control
-            if (!handleSpecialMissionControlMessage(message_str)) {
+            try {
+                //handle messages from mission control
+                if (!handleSpecialMissionControlMessage(message_str)) {
 
-                char firstCharacter = message_str.at(0);
-                if (firstCharacter == '[') {
-                    //data is compressed - inflate
-                    DataBucket received = DataBucket(message_str);
-                    receivedState = received.inflate(receivedState);
-                } else {
-                    //data bucket is not compressed
-                    receivedState = DataBucket(message_str);
+                    char firstCharacter = message_str.at(0);
+                    if (firstCharacter == '[') {
+                        //data is compressed - inflate
+                        DataBucket received = DataBucket(message_str);
+                        receivedState = received.inflate(receivedState);
+                    } else {
+                        //data bucket is not compressed
+                        receivedState = DataBucket(message_str);
+                    }
+
+                    handleMissionControlState(receivedState);
+
+                    updateRobotControls(receivedState);
                 }
-
-                handleMissionControlState(receivedState);
-
-                updateRobotControls(receivedState);
+            } catch (std::exception e) {
+                cout << "Error processing message: " << message_str << ": " << e.what() << endl;
             }
 
             //send ACK
@@ -103,7 +108,7 @@ int main(int argc, char** argv) {
                          // See http://www.boost.org/doc/libs/1_55_0/doc/html/boost_asio/reference.html, Error Codes for error code meanings
                          "Error: " << ec << ", error message: " << ec.message() << endl;
                 } else {
-                    cout << "Server: Send ACK" << endl;
+                    cout << "[send] ACK" << endl;
                 }
             });
         }
@@ -171,7 +176,7 @@ int main(int argc, char** argv) {
             connectionState[connection].ready = false;
             connectionState[connection].lastSend = robosub::Time::millis();
 
-            //cout << current << endl;
+            cout << "[send] " << current << endl;
 
             //check if better to send as compressed or uncompressed
             //cout << current.toString().length() << " " << compressed.toString().length() << endl;
@@ -184,7 +189,7 @@ int main(int argc, char** argv) {
             } else {
                 //send compressed
                 auto send_stream = make_shared<WsServer::SendStream>();
-                //FIXME disable compression
+                //FIXME disabled compression
                 *send_stream << sentState;
                 //*send_stream << compressed;
                 connection->send(send_stream);
