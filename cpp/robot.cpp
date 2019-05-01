@@ -3,69 +3,68 @@
 
 char imuLastReceivedMessage[256];
 
-Serial* serial_imu;
-Serial* serial_motorcontrol;
+Serial* serial_imu = nullptr;
+Serial* serial_motorcontrol = nullptr;
 
 vector<Serial*> serialPorts;
 int currentReceivingSerialIdx;
 
-//void imuReceiveMessage(char* message, int length, bool needsresponse, char** response, int* responselength){
-//	memcpy(imuLastReceivedMessage, message, length);
-//	imuLastReceivedMessage[length] = 0;
-//	//cout<<imuLastReceivedMessage<<endl;
-//}
+void imuReceiveMessage(const char* message, int length, bool needsresponse, char** response, int* responselength){
+    cout << "IMU: " << imuLastReceivedMessage << endl;
+	memcpy(imuLastReceivedMessage, message, length);
+	imuLastReceivedMessage[length] = 0;
+}
 
-//void mcReceiveMessage(char* message, int length, bool needsresponse, char** response, int* responselength){
-//	message[length] = 0;
-//	cout<<message<<endl;
-//}
+void mcReceiveMessage(const char* message, int length, bool needsresponse, char** response, int* responselength){
+	cout << "MC: " << message << endl;
+}
 
 void serialReceiveMessage(char* message, int length, bool needsresponse, char** response, int* responselength){
 	char ident = message[0];
+	string messageStr = string(message);
+	string data = messageStr.substr(1);
+	cout << message << endl;
 	
-	if(ident=='m'){ //Motor controller
+	if(ident=='m')
+	{
+	    //Motor controller
 		serial_motorcontrol = serialPorts[currentReceivingSerialIdx];
-		
-		
-		
-	}else if(ident=='i'){ //9DoF IMU
+        mcReceiveMessage(data.c_str(), length - 1, needsresponse, response, responselength);
+	} else if (ident=='i')
+	{
+	    //9DoF IMU
 		serial_imu = serialPorts[currentReceivingSerialIdx];
-		
-		
+		imuReceiveMessage(data.c_str(), length - 1, needsresponse, response, responselength);
 	}
 }
 
 void initRobotState(){
 	string portstr = Util::execCLI("ls /dev | grep tty[AU]");
 	auto ports = Util::splitString(portstr, '\n');
-	for(int i=0; i<ports.size(); i++){
-		cout<<ports[i]<<endl;
-		Serial* serialport = new Serial("/dev/"+ports[i], 115200, serialReceiveMessage, true);
-		serialPorts.push_back(serialport);
-	}
-	
-	serial_imu = 0;
-	serial_motorcontrol = 0;
-	
-	//string port = Util::execCLI("ls /dev | grep tty[AU]");
-	//cout<<"using serial port /dev/"<<port<<endl;
-	//serial1 = new Serial("/dev/" + port.substr(0,port.length()-1), 115200, receiveMessage, false);
-	
-	//serial_imu = new Serial("/dev/ttyACM0", 115200, imuReceiveMessage, false);
-	//serial_motorcontrol = new Serial("/dev/ttyACM1", 115200, mcReceiveMessage, true);
+
+    for(const auto & port : ports){
+        cout << port << endl;
+        Serial* serialport = new Serial("/dev/" + port, 115200, serialReceiveMessage, true);
+        serialPorts.push_back(serialport);
+    }
+
+	serial_imu = nullptr;
+	serial_motorcontrol = nullptr;
 }
 
 void updateRobotTelemetry(DataBucket& state){
+
+    //receive all messages
 	for(int i=0; i<serialPorts.size(); i++){
 		currentReceivingSerialIdx = i;
-		serialPorts[i].receiveAllMessages();
+		serialPorts[i]->receiveAllMessages();
 	}
-	
+
 	auto imu = Util::splitString(string(imuLastReceivedMessage), ',');
 	
 	state["imu"] = {};
 	
-	if(imu.size()>=17){
+	if (imu.size() >= 17) {
 		state["imu"]["ax"] = stof(imu[ 0]); // acceleration x (G)
 		state["imu"]["ay"] = stof(imu[ 1]); // acceleration y (G)
 		state["imu"]["az"] = stof(imu[ 2]); // acceleration z (G)
@@ -102,11 +101,13 @@ void updateRobotControls(DataBucket& state){
 		motorvals.ul = (short)state["motors"]["ul"]; //connected to pin 8 on the arduino
 		motorvals.ur = (short)state["motors"]["ur"]; //connected to pin 10 on the arduino
 		motorvals.v  = (short)state["motors"]["v"];  //connected to pins 5 & 6 on the arduino
-		
-		if(serial_motorcontrol!=0){
-			serial_motorcontrol->transmitMessageFast((char*)&motorvals, sizeof(motorvals));
-		}else{
-			cout<<"Serial port for motor control not open"<<endl;
+
+		cout << "Sending motors" << endl;
+
+		if(serial_motorcontrol != nullptr){
+//			serial_motorcontrol->transmitMessageFast((char*)&motorvals, sizeof(motorvals));
+		} else {
+			cout << "Serial port for motor control not open"<<endl;
 		}
 	} catch (exception &e) {
 		cout << e.what() << endl;

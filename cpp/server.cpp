@@ -5,6 +5,9 @@
 
 #include "robot.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+
 using namespace std;
 using namespace robosub;
 
@@ -200,3 +203,5 @@ int main(int argc, char** argv) {
 
     server_thread.join();
 }
+
+#pragma clang diagnostic pop
