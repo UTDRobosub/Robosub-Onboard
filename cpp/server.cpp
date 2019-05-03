@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
         if (message_str == "\x06") {
             connectionState[connection].ready = true;
             connectionState[connection].rtt = robosub::Time::millis() - connectionState[connection].lastSend;
-            cout << "[rcv ] ack" << endl;
+            //cout << "[rcv ] ack" << endl;
         } else {
             cout << "[rcv ] " << message_str << endl;
 
@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
                          // See http://www.boost.org/doc/libs/1_55_0/doc/html/boost_asio/reference.html, Error Codes for error code meanings
                          "Error: " << ec << ", error message: " << ec.message() << endl;
                 } else {
-                    cout << "[send] ACK" << endl;
+                    //cout << "[send] ACK" << endl;
                 }
             });
         }
@@ -179,7 +179,7 @@ int main(int argc, char** argv) {
             connectionState[connection].ready = false;
             connectionState[connection].lastSend = robosub::Time::millis();
 
-            cout << "[send] " << current << endl;
+            //cout << "[send] " << current << endl;
 
             //check if better to send as compressed or uncompressed
             //cout << current.toString().length() << " " << compressed.toString().length() << endl;

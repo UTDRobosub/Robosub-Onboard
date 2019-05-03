@@ -10,31 +10,39 @@ vector<Serial*> serialPorts;
 int currentReceivingSerialIdx;
 
 void imuReceiveMessage(const char* message, int length, bool needsresponse, char** response, int* responselength){
-    cout << "IMU: " << imuLastReceivedMessage << endl;
 	memcpy(imuLastReceivedMessage, message, length);
 	imuLastReceivedMessage[length] = 0;
+
+    //cout << "IMU: " << imuLastReceivedMessage << endl;
 }
 
 void mcReceiveMessage(const char* message, int length, bool needsresponse, char** response, int* responselength){
-	cout << "MC: " << message << endl;
+	//cout << "MC: " << message << endl;
 }
 
 void serialReceiveMessage(char* message, int length, bool needsresponse, char** response, int* responselength){
 	char ident = message[0];
-	string messageStr = string(message);
-	string data = messageStr.substr(1);
-	cout << message << endl;
 	
 	if(ident=='m')
 	{
 	    //Motor controller
+	    if(serialPorts[currentReceivingSerialIdx]!=serial_motorcontrol) {
+            cout << "Motor Controller identified as " << currentReceivingSerialIdx << endl;
+        }
+
 		serial_motorcontrol = serialPorts[currentReceivingSerialIdx];
-        mcReceiveMessage(data.c_str(), length - 1, needsresponse, response, responselength);
+        mcReceiveMessage(message+1, length-1, needsresponse, response, responselength);
 	} else if (ident=='i')
 	{
 	    //9DoF IMU
+        if(serialPorts[currentReceivingSerialIdx]!=serial_imu) {
+            cout << "IMU identified as " << currentReceivingSerialIdx << endl;
+        }
+
 		serial_imu = serialPorts[currentReceivingSerialIdx];
-		imuReceiveMessage(data.c_str(), length - 1, needsresponse, response, responselength);
+		imuReceiveMessage(message+1, length-1, needsresponse, response, responselength);
+
+		//cout<<"IMU identified"<<endl;
 	}
 }
 
@@ -43,7 +51,7 @@ void initRobotState(){
 	auto ports = Util::splitString(portstr, '\n');
 
     for(const auto & port : ports){
-        cout << port << endl;
+        cout << "Starting serial connection " << serialPorts.size() << " on port " << port << endl;
         Serial* serialport = new Serial("/dev/" + port, 115200, serialReceiveMessage, true);
         serialPorts.push_back(serialport);
     }
@@ -105,7 +113,7 @@ void updateRobotControls(DataBucket& state){
 		cout << "Sending motors" << endl;
 
 		if(serial_motorcontrol != nullptr){
-//			serial_motorcontrol->transmitMessageFast((char*)&motorvals, sizeof(motorvals));
+			serial_motorcontrol->transmitMessageFast((char*)&motorvals, sizeof(motorvals));
 		} else {
 			cout << "Serial port for motor control not open"<<endl;
 		}

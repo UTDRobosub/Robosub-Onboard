@@ -29,6 +29,8 @@ void serial_setup(){
   serialstate = Serial_NewState(serialInstance, receiveMessageCallback, sendCharFn, delayMsFn, pollReceiveFn);
 
   delay(100);
+  
+  Serial_SendMessage(serialstate, "mtest", 5, true);
 }
 
 /////////////////////////////////
