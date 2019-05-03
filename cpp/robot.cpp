@@ -17,7 +17,7 @@ void imuReceiveMessage(const char* message, int length, bool needsresponse, char
 }
 
 void mcReceiveMessage(const char* message, int length, bool needsresponse, char** response, int* responselength){
-	//cout << "MC: " << message << endl;
+	cout << "MC: " << message << endl;
 }
 
 void serialReceiveMessage(char* message, int length, bool needsresponse, char** response, int* responselength){
@@ -52,7 +52,7 @@ void initRobotState(){
 
     for(const auto & port : ports){
         cout << "Starting serial connection " << serialPorts.size() << " on port " << port << endl;
-        Serial* serialport = new Serial("/dev/" + port, 115200, serialReceiveMessage, true);
+        Serial* serialport = new Serial("/dev/" + port, 115200, serialReceiveMessage, true, true);
         serialPorts.push_back(serialport);
     }
 
@@ -94,14 +94,14 @@ void updateRobotTelemetry(DataBucket& state){
 }
 
 struct MotorValues {
-	short bl;
-	short br;
-	short ul;
-	short ur;
-	short v;
-	short a1;
-	short a2;
-	short a3;
+    short bl;
+    short br;
+    short ul;
+    short ur;
+    short v ; //-255 to 255
+    short a1; //0 to 130 degrees
+    short a2; //0 to 180 degrees
+    short a3; //0 to 65 degrees
 };
 
 void updateRobotControls(DataBucket& state){

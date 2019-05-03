@@ -36,7 +36,7 @@ const unsigned char Serial_CRC8Table[256] ={
   0x9B, 0xBE, 0xD1, 0xF4, 0x0F, 0x2A, 0x45, 0x60
 };
 
-const int Serial_TicksToWaitForAck = 100;
+const int Serial_TicksToWaitForAck = 1000;
 const int Serial_TickLengthMs = 1;
 
 const int Serial_MaxMessageLength = 256;
@@ -179,7 +179,7 @@ void Serial_SendMessageComplex(Serial_State* state, char* buffer, int length, un
         ticksWaited++;
       }
       
-      if(ticksWaited<Serial_TicksToWaitForAck){
+      if(!state->awaitingAck){
         retransmit = false;
         
         if(state->lastMessageHasAckData){

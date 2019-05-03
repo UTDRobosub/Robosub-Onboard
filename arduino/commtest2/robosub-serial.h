@@ -56,9 +56,9 @@ const char Serial_Flags_IncludesAckData   = 0b00010000;
 
 struct Serial_State{
 	void* instance;
-
+	
 	bool useprotocol;
-
+	
 	void (*onReceiveMessage)(void* instance, char* message, int length, bool needsresponse, char** response, int* responsepength);
 	void (*sendChar)(void* instance, char data, bool terminate);
 	void (*delay)(void* instance, int milliseconds);
@@ -94,7 +94,7 @@ Serial_State* Serial_NewState(
 	Serial_State* state = new Serial_State();
 	
 	state->instance = instanceP;
-
+	
 	state->useprotocol = useprotocol;
 	
 	state->onReceiveMessage = onReceiveMessageF;
@@ -142,7 +142,7 @@ void Serial_SendMessageNoProtocol(Serial_State* state, char* buffer, int length)
 	for(int i=0; i<length; i++){
 		char data = buffer[i];
 		bool isend = i==length-1;
-
+		
 		Serial_SendChar(state, data, isend);
 	}
 }
@@ -253,7 +253,7 @@ void Serial_ReceiveCharNoProtocol(Serial_State* state, char rawdata){
 		state->currentMessageFlags = 0;
 		state->currentMessageSN = 0;
 		state->currentMessageComputedCRC = 0;
-
+		
 		state->currentMessageDataLength = 0;
 	}else if(state->state==Serial_State_InMessageData && rawdata!=']'){
 		if(state->currentMessageDataLength<Serial_MaxMessageLength){
@@ -264,7 +264,7 @@ void Serial_ReceiveCharNoProtocol(Serial_State* state, char rawdata){
 		}
 	}else if(state->state==Serial_State_InMessageData){
 		Serial_OnReceiveMessageNoProtocol(state);
-
+		
 		state->state = Serial_State_Outside;
 	}
 }
@@ -341,7 +341,7 @@ void Serial_ReceiveChar(Serial_State *state, char rawdata){
 void Serial_SendMessage(Serial_State* state, char* buffer, int length, bool needsack){
 	state->lastUsedSN = (state->lastUsedSN+1)%256;
 	char sequencenumber = state->lastUsedSN;
-
+	
 	if(state->useprotocol) {
 		Serial_SendMessageComplex(state, buffer, length, sequencenumber, false, needsack, false, false, 0, 0);
 	}else{
@@ -352,7 +352,7 @@ void Serial_SendMessage(Serial_State* state, char* buffer, int length, bool need
 void Serial_SendMessageNeedsResponse(Serial_State* state, char* buffer, int length, bool needsack, char** response, int* responselength){
 	state->lastUsedSN = (state->lastUsedSN+1)%256;
 	char sequencenumber = state->lastUsedSN;
-
+	
 	if(state->useprotocol) {
 		Serial_SendMessageComplex(state, buffer, length, sequencenumber, false, false, true, false, response,
 								  responselength);
