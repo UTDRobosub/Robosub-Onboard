@@ -91,6 +91,9 @@ struct MotorValues {
 	short ul;
 	short ur;
 	short v;
+	short a1;
+	short a2;
+	short a3;
 };
 
 void updateRobotControls(DataBucket& state){
@@ -101,6 +104,9 @@ void updateRobotControls(DataBucket& state){
 		motorvals.ul = (short)state["motors"]["ul"]; //connected to pin 8 on the arduino
 		motorvals.ur = (short)state["motors"]["ur"]; //connected to pin 10 on the arduino
 		motorvals.v  = (short)state["motors"]["v"];  //connected to pins 5 & 6 on the arduino
+		motorvals.a1  = (short)state["motors"]["a1"]; 
+		motorvals.a2  = (short)state["motors"]["a2"]; 
+		motorvals.a3  = (short)state["motors"]["a3"]; 
 
 		cout << "Sending motors" << endl;
 
