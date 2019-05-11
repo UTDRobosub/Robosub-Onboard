@@ -17,7 +17,7 @@ void imuReceiveMessage(const char* message, int length, bool needsresponse, char
 }
 
 void mcReceiveMessage(const char* message, int length, bool needsresponse, char** response, int* responselength){
-	cout << "MC: " << message << endl;
+	//cout << "MC: " << message << endl;
 }
 
 void serialReceiveMessage(char* message, int length, bool needsresponse, char** response, int* responselength){
@@ -52,7 +52,7 @@ void initRobotState(){
 
     for(const auto & port : ports){
         cout << "Starting serial connection " << serialPorts.size() << " on port " << port << endl;
-        Serial* serialport = new Serial("/dev/" + port, 115200, serialReceiveMessage, true, true);
+        Serial* serialport = new Serial("/dev/" + port, 115200, serialReceiveMessage, true);
         serialPorts.push_back(serialport);
     }
 

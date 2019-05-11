@@ -30,16 +30,16 @@ void serial_setup(){
 	
 	serialstate = Serial_NewState(serialInstance, receiveMessageCallback, sendCharFn, delayMsFn, pollReceiveFn);
 	
-	delay(1000);
+	delay(100);
 	
-	char* smsg = "mtest_";
-	smsg[5] = testidx++;
+	//char* smsg = "mtest_";
+	//smsg[5] = testidx++;
+	//
+	//Serial_SendMessage(serialstate, smsg, 6, true);
+	//
+	//Serial.println("started serial");
 	
-	Serial_SendMessage(serialstate, smsg, 6, true);
-	
-	Serial.println("started serial");
-	
-	delay(1000);
+	//delay(100);
 }
 
 /////////////////////////////////
@@ -77,7 +77,11 @@ Servo servo2;
 Servo servo3;
 Servo servo4;
 
+int analogVals[256];
+
 void motor_setup() {
+	for(int i=0; i<256; i++){ analogVals[i] = 0; }
+	
 	pinMode(verticalMotorPin1, OUTPUT);
 	pinMode(verticalMotorPin2, OUTPUT);
 	analogWrite(verticalMotorPin1, 0);
@@ -106,8 +110,6 @@ int signum(int n){
 	if (n < 0) return -1;
 	return 0;
 }
-
-int analogVals[256];
 
 void analogWriteDebug(int pin, int val){
 	analogWrite(pin, val);
@@ -186,9 +188,9 @@ void loop(){
 	
 	motor_update();
 	
-	Serial.println("started loop");
-	
 	msgl = 0;
+	msg[msgl++] = 'm';
+	
 	for(int i=0; i<256; i++){
 		int v = analogVals[i];
 		if(v!=0){
@@ -201,5 +203,5 @@ void loop(){
 	
 	Serial_SendMessage(serialstate, msg, msgl, false);
 	
-	delay(1);
+	delay(10);
 }
